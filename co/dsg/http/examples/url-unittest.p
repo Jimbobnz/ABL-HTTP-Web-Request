@@ -1,4 +1,4 @@
-USING src.url.
+USING co.dsg.http.*.
 
 DEFINE VARIABLE OBJURL AS CLASS URL   NO-UNDO.
 

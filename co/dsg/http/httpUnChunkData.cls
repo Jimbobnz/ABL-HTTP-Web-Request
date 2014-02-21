@@ -1,4 +1,4 @@
-CLASS src.httpUnChunkData:
+CLASS co.dsg.http.httpUnChunkData:
 
     CONSTRUCTOR httpUnChunkData():
   

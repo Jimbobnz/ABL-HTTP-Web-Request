@@ -15,9 +15,7 @@
 /*          This .cls file was created with the Progress AppBuilder.    */
 /*----------------------------------------------------------------------*/
 
-
-
-CLASS src.URL:
+CLASS co.dsg.http.URL:
 
     /* ***************************  PROPERTIES  ************************** */
 

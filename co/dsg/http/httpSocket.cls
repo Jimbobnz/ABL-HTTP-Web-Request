@@ -24,7 +24,7 @@ THE SOFTWARE.
 */
 
 
-CLASS src.httpSocket:
+CLASS co.dsg.http.httpSocket:
     
     DEFINE VARIABLE hnClientSocket             AS HANDLE NO-UNDO.
     

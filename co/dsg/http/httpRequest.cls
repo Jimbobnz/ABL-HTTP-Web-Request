@@ -1,4 +1,4 @@
-CLASS src.httpRequest:
+CLASS co.dsg.http.httpRequest:
 
     DEFINE PUBLIC PROPERTY CHARSET          AS CHARACTER NO-UNDO GET. SET.
     DEFINE PUBLIC PROPERTY ContentType      AS CHARACTER NO-UNDO GET. SET.
@@ -299,7 +299,7 @@ CLASS src.httpRequest:
                   BY ttHttpRequestHeader.HttpHeaderIndex:
 
                   ASSIGN
-                      inNewIndex                      = inNewIndex + 1
+                      inNewIndex                          = inNewIndex + 1
                       ttHttpRequestHeader.HttpHeaderIndex = inNewIndex.
               END.
                 

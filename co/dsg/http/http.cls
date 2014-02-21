@@ -23,9 +23,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-USING co.dsg.http.*
+USING co.dsg.http.*.
 
-CLASS src.http:
+CLASS co.dsg.http.http:
 
     DEFINE PRIVATE PROPERTY objURL                  AS CLASS URL                NO-UNDO GET. PRIVATE SET. 
     DEFINE PUBLIC  PROPERTY objHttpRequest          AS CLASS httpRequest        NO-UNDO GET. PRIVATE SET. 
@@ -43,7 +43,7 @@ CLASS src.http:
         
     END CONSTRUCTOR.
 
-    METHOD PUBLIC CLASS src.httpResponce HttpResponce():
+    METHOD PUBLIC CLASS httpResponce HttpResponce():
         RETURN THIS-OBJECT:objHttpResponce.
     END METHOD.
     
@@ -91,8 +91,8 @@ CLASS src.http:
                                           pchPassword).
     END METHOD.
 
-    METHOD PUBLIC CLASS src.httpResponce SynchronousRequest (INPUT pchURL           AS CHARACTER,
-                                                             INPUT objHttpRequest   AS CLASS src.httpRequest):
+    METHOD PUBLIC CLASS httpResponce SynchronousRequest (INPUT pchURL           AS CHARACTER,
+                                                             INPUT objHttpRequest   AS CLASS httpRequest):
 
         &SCOPED-DEFINE CRLF CHR(13) + CHR(10)
 
@@ -286,7 +286,7 @@ CLASS src.http:
         RETURN THIS-OBJECT:objHttpResponce.
     END METHOD.
 
-    METHOD PUBLIC CLASS src.httpResponce SynchronousRequest (INPUT pchURL AS CHARACTER):
+    METHOD PUBLIC CLASS httpResponce SynchronousRequest (INPUT pchURL AS CHARACTER):
         
         /** Request method defaults to 'GET' **/
         THIS-OBJECT:objHttpRequest = NEW HttpRequest().
@@ -320,11 +320,11 @@ CLASS src.http:
     END METHOD.
 
     METHOD PUBLIC LOGICAL Download (INPUT pchURL           AS CHARACTER,
-                                    INPUT objHttpRequest   AS CLASS src.HttpRequest,
+                                    INPUT objHttpRequest   AS CLASS HttpRequest,
                                     INPUT pcFileName       AS CHARACTER):
 
-        DEFINE VARIABLE objDownloadResponce AS CLASS src.HttpResponce NO-UNDO.
-        DEFINE VARIABLE objDownloadURL      AS CLASS src.URL NO-UNDO.
+        DEFINE VARIABLE objDownloadResponce AS CLASS HttpResponce NO-UNDO.
+        DEFINE VARIABLE objDownloadURL      AS CLASS URL NO-UNDO.
         DEFINE VARIABLE chDirectory         AS CHARACTER   NO-UNDO.
 
         FILE-INFO:FILE-NAME = '.'.

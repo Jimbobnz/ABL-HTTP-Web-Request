@@ -1,8 +1,10 @@
-CLASS src.httpResponce:
+USING co.dsg.http.*.
+
+CLASS co.dsg.http.httpResponce:
 
     &SCOPED-DEFINE Http-NEWLINE CHR(13) + CHR(10)
 
-    DEFINE PUBLIC PROPERTY Cookie     AS CLASS src.HttpCookies  NO-UNDO GET. PRIVATE SET. 
+    DEFINE PUBLIC PROPERTY Cookie     AS CLASS HttpCookies  NO-UNDO GET. PRIVATE SET. 
     
     DEFINE PROPERTY URL                 AS CHARACTER INITIAL '/' NO-UNDO GET. SET . 
     DEFINE PROPERTY hostname            AS CHARACTER             NO-UNDO GET. SET . 
@@ -29,7 +31,7 @@ CLASS src.httpResponce:
             Order.
     
     CONSTRUCTOR httpResponce():
-        THIS-OBJECT:Cookie = NEW src.HttpCookies().
+        THIS-OBJECT:Cookie = NEW HttpCookies().
     END CONSTRUCTOR.     
 
     DESTRUCTOR httpResponce():
@@ -276,9 +278,9 @@ CLASS src.httpResponce:
                THIS-OBJECT:HEADER('Transfer-Encoding') EQ 'chunked':U THEN
             DO: 
 
-                DEFINE VARIABLE objUnChunkData AS CLASS src.httpUnChunkData NO-UNDO.
+                DEFINE VARIABLE objUnChunkData AS CLASS httpUnChunkData NO-UNDO.
 
-                objUnChunkData = NEW src.httpUnChunkData().
+                objUnChunkData = NEW httpUnChunkData().
 
                 THIS-OBJECT:Body = objUnChunkData:Filter( THIS-OBJECT:Body).
             END.
