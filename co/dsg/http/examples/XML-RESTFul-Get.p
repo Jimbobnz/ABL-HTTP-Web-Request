@@ -1,9 +1,11 @@
-DEFINE VARIABLE objHttp             AS CLASS src.http         NO-UNDO.
-DEFINE VARIABLE objHttpRequest      AS CLASS src.httpRequest  NO-UNDO.
-DEFINE VARIABLE objHttpResponce     AS CLASS src.httpResponce NO-UNDO.
+USING co.dsg.http.*.
 
-objHttp        = NEW src.http().
-objHttpRequest = NEW src.httpRequest().
+DEFINE VARIABLE objHttp             AS CLASS http         NO-UNDO.
+DEFINE VARIABLE objHttpRequest      AS CLASS httpRequest  NO-UNDO.
+DEFINE VARIABLE objHttpResponce     AS CLASS httpResponce NO-UNDO.
+
+objHttp        = NEW http().
+objHttpRequest = NEW httpRequest().
 
 objHttpRequest:HttpMethod = 'GET'.
 /* objHttpRequest:ContenTTYPE = 'application/x-www-form-urlencoded'. */
