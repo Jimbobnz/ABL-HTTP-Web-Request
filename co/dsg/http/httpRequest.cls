@@ -7,10 +7,10 @@ CLASS co.dsg.http.httpRequest:
     DEFINE PUBLIC PROPERTY Path             AS CHARACTER NO-UNDO GET. SET.
     DEFINE PUBLIC PROPERTY Boundary         AS CHARACTER NO-UNDO GET. PRIVATE SET.
     DEFINE PUBLIC PROPERTY NumHeaderFields  AS INTEGER   NO-UNDO GET. PRIVATE SET. 
-    DEFINE PUBLIC PROPERTY NumParams        AS INTEGER   NO-UNDO GET. PRIVATE SET. 
     DEFINE PUBLIC PROPERTY ContentLength    AS INTEGER   NO-UNDO GET. PRIVATE SET. 
     DEFINE PUBLIC PROPERTY FormData         AS HANDLE    NO-UNDO GET. PRIVATE SET. 
-    
+    DEFINE PUBLIC PROPERTY NumParams        AS INTEGER   NO-UNDO GET. PRIVATE SET. 
+
     DEFINE PRIVATE TEMP-TABLE ttHttpRequestHeader NO-UNDO
         FIELD HttpHeaderName   AS CHARACTER 
         FIELD HttpHeaderValue  AS CHARACTER
@@ -40,7 +40,6 @@ CLASS co.dsg.http.httpRequest:
         INDEX idxFormName  IS PRIMARY
             FormName.
 
-
     CONSTRUCTOR httpRequest():
 
         THIS-OBJECT:CHARSET         = SESSION:CPINTERNAL.
@@ -51,9 +50,7 @@ CLASS co.dsg.http.httpRequest:
         THIS-OBJECT:NumHeaderFields = 0. 
         THIS-OBJECT:NumParams       = 0.
         THIS-OBJECT:Boundary        = HEX-ENCODE(GENERATE-UUID).   /** Used for multi-part posts**/ 
-
-        THIS-OBJECT:FormData = TEMP-TABLE ttFormData:HANDLE.
-
+        THIS-OBJECT:FormData        = TEMP-TABLE ttFormData:HANDLE.
     END CONSTRUCTOR.
 
 
@@ -318,19 +315,17 @@ CLASS co.dsg.http.httpRequest:
 
         chHTTPRequestHeader = ''.
 
-        /** Automatically add the 'Accept' Header if not supplied..**/
+                /** Automatically add the 'Accept' Header if not supplied..**/
         IF THIS-OBJECT:HeaderField('Accept') EQ '' THEN
             THIS-OBJECT:AddHeader('Accept', '*/*' ).
 
         /** Automatically add the 'User-Agent' if it has not already been specified..**/
         IF THIS-OBJECT:HeaderField('User-Agent') EQ '' THEN
-            THIS-OBJECT:AddHeader('User-Agent', 'OpenEdge ' + PROVERSION(1) + ' ({&OPSYS}; {&WINDOW-SYSTEM}{&PROCESS-ARCHITECTURE})'  ).
-
-        
+            THIS-OBJECT:AddHeader('User-Agent', 'OpenEdge ' + PROVERSION(1) + ' ({&OPSYS}; {&WINDOW-SYSTEM}{&PROCESS-ARCHITECTURE})' ).
 
         chPath = TRIM(THIS-OBJECT:path).
 
-        IF THIS-OBJECT:HttpMethod EQ 'GET':U AND NumParams GT 0 THEN
+        IF THIS-OBJECT:HttpMethod EQ 'GET':U AND THIS-OBJECT:NumParams GT 0 THEN
         DO:
             IF INDEX(path,'?') GT 0 THEN
                 chPath = chPath + '&' + THIS-OBJECT:urlEncodedParams(). /** Append to query string..**/
@@ -387,13 +382,14 @@ CLASS co.dsg.http.httpRequest:
             inContentLength = inContenTLENGTH + LENGTH('--' + THIS-OBJECT:Boundary + '--','RAW'). 
 
             THIS-OBJECT:AddHeader('Content-Length', STRING( inContentLength )).
-            THIS-OBJECT:ADDHEADER('Content-Type', SUBSTITUTE('multipart/form-data; boundary=&1' + {&CRLF} + {&CRLF}, 
+            THIS-OBJECT:AddHeader('Content-Type', SUBSTITUTE('multipart/form-data; boundary=&1' + {&CRLF} + {&CRLF}, 
                                                              THIS-OBJECT:Boundary)
                                   ).
         END.
 
-        
+        /** Cookie information is controlled by the http.cls. **/
 
+        /** Output each of the HTTP headers.**/
         FOR EACH ttHttpRequestHeader
             BY ttHttpRequestHeader.HttpHeaderIndex:
             
@@ -403,6 +399,8 @@ CLASS co.dsg.http.httpRequest:
                                              TRIM(ttHttpRequestHeader.HttpHeaderValue)
                                              ).
         END.
+
+
 
 /*         chHTTPRequestHeader = SUBSTITUTE('&1Content-Type: &2' + {&CRLF}, */
 /*                                          chHTTPRequestHeader,            */

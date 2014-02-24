@@ -31,12 +31,15 @@ CLASS co.dsg.http.httpResponce:
             Order.
     
     CONSTRUCTOR httpResponce():
-        THIS-OBJECT:Cookie = NEW HttpCookies().
+        
+    END CONSTRUCTOR.     
+
+    CONSTRUCTOR httpResponce(INPUT Cookie AS CLASS HttpCookies):
+        THIS-OBJECT:Cookie = Cookie.
     END CONSTRUCTOR.     
 
     DESTRUCTOR httpResponce():
-        IF VALID-OBJECT(THIS-OBJECT:Cookie) THEN
-            DELETE OBJECT THIS-OBJECT:Cookie.
+        Cookie:SaveCookies().
     END DESTRUCTOR.     
     
     METHOD VOID EmptyHeaders():
@@ -170,7 +173,8 @@ CLASS co.dsg.http.httpResponce:
 
 
     METHOD PUBLIC VOID ParseHttpResponce
-        (INPUT mpHttpData AS MEMPTR):
+        (   INPUT pchHostname AS CHARACTER,
+            INPUT mpHttpData  AS MEMPTR):
 
         DEFINE VARIABLE inLoop              AS INTEGER     NO-UNDO.
         DEFINE VARIABLE chHeaderLine        AS CHARACTER   NO-UNDO.
@@ -247,7 +251,8 @@ CLASS co.dsg.http.httpResponce:
 /*                         MESSAGE chHeaderName chHeaderValue. */
                             
                         IF chHeaderName EQ 'Set-Cookie':U THEN
-                            Cookie:ImportCookie(INPUT chHeaderValue).
+                            Cookie:ImportCookie(INPUT pchHostname,
+                                                INPUT chHeaderValue).
                         ELSE
                             riHeaderROWID = THIS-OBJECT:HEADER(INPUT chHeaderName,
                                                                INPUT chHeaderValue).
@@ -257,6 +262,9 @@ CLASS co.dsg.http.httpResponce:
                 END.
             END.
         END.    /** END of HEADER-PARSE block.**/
+
+        /** Save All Cookie Information to an XML file.**/
+        Cookie:SaveCookies().
 
 /*         IF THIS-OBJECT:STARTINGCONTENTAT GT GET-SIZE(mpHttpData) THEN */
 /*             THIS-OBJECT:STARTINGCONTENTAT = GET-SIZE(mpHttpData).     */
