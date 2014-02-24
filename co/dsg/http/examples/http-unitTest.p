@@ -23,14 +23,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-DEFINE VARIABLE objHttp             AS CLASS src.http         NO-UNDO.
-DEFINE VARIABLE objHttpRequest      AS CLASS src.httpRequest  NO-UNDO.
-DEFINE VARIABLE objHttpResponce     AS CLASS src.httpResponce NO-UNDO.
+USING co.dsg.http.*.
 
+DEFINE VARIABLE objHttp             AS CLASS http         NO-UNDO.
+DEFINE VARIABLE objHttpRequest      AS CLASS httpRequest  NO-UNDO.
+DEFINE VARIABLE objHttpResponce     AS CLASS httpResponce NO-UNDO.
 
 PROCEDURE HttpCallBack:
     
-    DEFINE INPUT PARAMETER objHttpResponce AS CLASS src.httpResponce.
+    DEFINE INPUT PARAMETER objHttpResponce AS CLASS httpResponce.
     DEFINE VARIABLE chFile AS CHARACTER   NO-UNDO.
 
     chFile = STRING(mtime) + '.html'.
@@ -50,16 +51,16 @@ PROCEDURE HttpCallBack:
     RETURN.
 END PROCEDURE.
 
-objHttp        = NEW src.http().
-objHttpRequest = NEW src.httpRequest().
+objHttp        = NEW http().
+objHttpRequest = NEW httpRequest().
 
 /** Define the Call Back Procedure ...**/
-objHttp:CALLBACKPROCEDURE(INPUT 'HttpCallBack',
+objHttp:CALLBACKPROCEDURE(INPUT 'HttpCallBack':U,
                           INPUT THIS-PROCEDURE).
 
 objHttp:FollowRedirect = TRUE.
 
-objHttpRequest:HttpMethod = 'POST'.
+objHttpRequest:HttpMethod  = 'POST'.
 objHttpRequest:ContenTTYPE = 'application/x-www-form-urlencoded'.
 objHttpRequest:ContenTTYPE = 'multipart/form-data'.
 
