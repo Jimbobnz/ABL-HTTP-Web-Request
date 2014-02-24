@@ -31,16 +31,25 @@ CLASS co.dsg.http.http:
     DEFINE PUBLIC  PROPERTY objHttpRequest          AS CLASS httpRequest        NO-UNDO GET. PRIVATE SET. 
     DEFINE PUBLIC  PROPERTY objHttpResponce         AS CLASS httpResponce       NO-UNDO GET. PRIVATE SET. 
     DEFINE PRIVATE PROPERTY objHTTPSocket           AS CLASS httpSocket         NO-UNDO GET. PRIVATE SET. 
-    DEFINE PUBLIC  PROPERTY HttpHeader              AS MEMPTR                       NO-UNDO GET. PRIVATE SET. 
-    DEFINE PUBLIC  PROPERTY ContentData             AS MEMPTR                       NO-UNDO GET. PRIVATE SET. 
-    DEFINE PUBLIC  PROPERTY UserInfo                AS CHARACTER                    NO-UNDO GET. PRIVATE SET. 
-    DEFINE PUBLIC  PROPERTY Secure                  AS LOGICAL INITIAL ?            NO-UNDO GET. SET. 
-    DEFINE PUBLIC  PROPERTY FollowRedirect          AS LOGICAL INITIAL TRUE         NO-UNDO GET. SET. 
-    DEFINE PRIVATE PROPERTY CallBackProcedureName   AS CHARACTER                    NO-UNDO GET. PRIVATE SET. 
-    DEFINE PRIVATE PROPERTY CallBackProcedureHandle AS HANDLE                       NO-UNDO GET. PRIVATE SET.  
+    DEFINE PRIVATE PROPERTY objCookies              AS CLASS httpCookies         NO-UNDO GET. PRIVATE SET. 
+    DEFINE PUBLIC  PROPERTY HttpHeader              AS MEMPTR                   NO-UNDO GET. PRIVATE SET. 
+    DEFINE PUBLIC  PROPERTY ContentData             AS MEMPTR                   NO-UNDO GET. PRIVATE SET. 
+    DEFINE PUBLIC  PROPERTY UserInfo                AS CHARACTER                NO-UNDO GET. PRIVATE SET. 
+    DEFINE PUBLIC  PROPERTY Secure                  AS LOGICAL INITIAL ?        NO-UNDO GET. SET. 
+    DEFINE PUBLIC  PROPERTY FollowRedirect          AS LOGICAL INITIAL TRUE     NO-UNDO GET. SET. 
+    DEFINE PRIVATE PROPERTY CallBackProcedureName   AS CHARACTER                NO-UNDO GET. PRIVATE SET. 
+    DEFINE PRIVATE PROPERTY CallBackProcedureHandle AS HANDLE                   NO-UNDO GET. PRIVATE SET.  
+    
 
     CONSTRUCTOR http():
-        
+        objCookies = NEW httpCookies().
+
+        /** Load Cookie Jar into Memory **/
+        objCookies:LoadCookies().
+
+        MESSAGE objCookies:GetCookies()
+            VIEW-AS ALERT-BOX INFO.
+
     END CONSTRUCTOR.
 
     METHOD PUBLIC CLASS httpResponce HttpResponce():
@@ -92,14 +101,14 @@ CLASS co.dsg.http.http:
     END METHOD.
 
     METHOD PUBLIC CLASS httpResponce SynchronousRequest (INPUT pchURL           AS CHARACTER,
-                                                             INPUT objHttpRequest   AS CLASS httpRequest):
+                                                         INPUT objHttpRequest   AS CLASS httpRequest):
 
         &SCOPED-DEFINE CRLF CHR(13) + CHR(10)
 
         THIS-OBJECT:objURL          = NEW URL(INPUT pchURL).    /** Parse the URL for conponent parts.**/
         THIS-OBJECT:objHTTPSocket   = NEW httpSocket(). 
-        THIS-OBJECT:objHttpResponce = NEW httpResponce(). 
-
+        THIS-OBJECT:objHttpResponce = NEW httpResponce( objCookies ). 
+        
         DEFINE VARIABLE mpHTTPDATA      AS MEMPTR      NO-UNDO.
         DEFINE VARIABLE mpHTTPContent   AS MEMPTR      NO-UNDO.
         DEFINE VARIABLE inNumParams     AS INTEGER     NO-UNDO.
@@ -120,7 +129,14 @@ CLASS co.dsg.http.http:
 
         /** BASIC Autheriation request... **/
         IF THIS-OBJECT:UserInfo NE '' THEN
-            objHttpRequest:ADDHEADER('Authentication':U, 'Basic ' + B64ENCODE(THIS-OBJECT:UserInfo) ).
+            objHttpRequest:AddHeader('Authentication':U, 'Basic ' + B64ENCODE(THIS-OBJECT:UserInfo) ).
+
+        /** Insert the cookies into HTTP Header**/
+        objHttpRequest:AddHeader('Cookie':U, 
+                                 objCookies:GetCookies( THIS-OBJECT:objURL:hostname,
+                                                        THIS-OBJECT:objURL:path,
+                                                        THIS-OBJECT:Secure) 
+                                 ).
 
         /* DEBUG START...*/
         OUTPUT TO 'HttpRequest.txt' BINARY.
@@ -214,7 +230,9 @@ CLASS co.dsg.http.http:
                             objHTTPSocket:WRITE({&CRLF}). /** CRLF before actual value**/
 
                             DEFINE VARIABLE mpTempBlobData AS MEMPTR      NO-UNDO.
+                            
 
+                            /** Write the binary data down the wire...**/
                             SET-SIZE(mpTempBlobData) = 0.
                             COPY-LOB FROM OBJECT hnFormDataBuffer::BlobData TO mpTempBlobData.
                             objHTTPSocket:WRITE( mpTempBlobData ).
@@ -234,13 +252,15 @@ CLASS co.dsg.http.http:
                 objHTTPSocket:WRITE('--' + objHttpRequest:Boundary + '--'). /** END OF POST...**/
     
             END.
-
+            
+            /** TODO: Change to Read Stream and Parse content on the fly....**/
             mpHTTPDATA = objHTTPSocket:READ().
 
             /** Effectivly split the header and body into two parts. 
                 This method also handles the chunked encoded body. **/
 
-            objHttpResponce:ParseHTTPResponce(mpHTTPDATA).
+            objHttpResponce:ParseHTTPResponce(INPUT THIS-OBJECT:objURL:hostname,
+                                              INPUT mpHTTPDATA).
             
 /*             MESSAGE objHttpResponce:HttpResponceString SKIP */
 /*                     objHttpResponce:header('Location') SKIP */
@@ -323,9 +343,9 @@ CLASS co.dsg.http.http:
                                     INPUT objHttpRequest   AS CLASS HttpRequest,
                                     INPUT pcFileName       AS CHARACTER):
 
-        DEFINE VARIABLE objDownloadResponce AS CLASS HttpResponce NO-UNDO.
-        DEFINE VARIABLE objDownloadURL      AS CLASS URL NO-UNDO.
-        DEFINE VARIABLE chDirectory         AS CHARACTER   NO-UNDO.
+        DEFINE VARIABLE objDownloadResponce AS CLASS HttpResponce   NO-UNDO.
+        DEFINE VARIABLE objDownloadURL      AS CLASS URL            NO-UNDO.
+        DEFINE VARIABLE chDirectory         AS CHARACTER            NO-UNDO.
 
         FILE-INFO:FILE-NAME = '.'.
         chDirectory = FILE-INFO:FULL-PATHNAME.
