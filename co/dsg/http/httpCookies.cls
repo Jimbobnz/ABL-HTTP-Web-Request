@@ -186,8 +186,13 @@ CLASS co.dsg.http.httpCookies.
                         ttSessionCookies.Expires       = ENTRY(2, chCookieSegment, '=').
             END CASE.
 
-            IF ttSessionCookies.COOKIEVALUE EQ '' THEN
-                DELETE ttSessionCookies.
+            /** Convert Date**/
+            
+/*             DEFINE VARIABLE objDateISO AS CLASS co.dsg.http.ABLDateTime NO-UNDO. */
+/*             objDateISO = NEW ABLDateTime().                                      */
+/*             objDateISO:DATETIME(ttSessionCookies.Expires).                       */
+/*             DELETE OBJECT objDateISO.                                            */
+
         END.
         
         THIS-OBJECT:HasCookies = TEMP-TABLE ttSessionCookies:HAS-RECORDS.

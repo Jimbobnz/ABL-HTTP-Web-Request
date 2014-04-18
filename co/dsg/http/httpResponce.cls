@@ -1,4 +1,5 @@
 USING co.dsg.http.*.
+USING net.progress.encode.gzip.Zlib.
 
 CLASS co.dsg.http.httpResponce:
 
@@ -52,18 +53,44 @@ CLASS co.dsg.http.httpResponce:
          in case of failure the size of decompressed data = -1
       */
           DEFINE VARIABLE OutputBuffer AS MEMPTR    NO-UNDO.
+          DEFINE VARIABLE GZIPPayload  AS MEMPTR    NO-UNDO.
           DEFINE VARIABLE retcode AS INT NO-UNDO.
 
           COPY-LOB FROM InputBuffer TO FILE 'CompressedData.gz'.
+            
+          /* clean-up, only for development to reload prototype procedure */
+          DELETE OBJECT Zlib:getInstance() NO-ERROR.
 
-          RUN src/uncompress.p (INPUT InputBuffer,
-                                OUTPUT OutputBuffer,
-                                OUTPUT retcode).
+          /** Strip GZIP Header & footer relealing just the payload. **/
+          IF GET-BYTE(InputBuffer,1) EQ 0x1F AND
+             GET-BYTE(InputBuffer,2) EQ 0x8B THEN
+          DO:
 
-          MESSAGE retcode GET-SIZE(InputBuffer) GET-SIZE(OutputBuffer)
-              VIEW-AS alert-box info.
-  
+                COPY-LOB FROM InputBuffer STARTING AT 9 TO GZIPPayload.
 
+                SET-SIZE(InputBuffer) = 0.
+
+                PUT-BYTE(GZIPPayload,1) = 0x78.
+                PUT-BYTE(GZIPPayload,2) = 0x9c.
+                COPY-LOB FROM GZIPPayload FOR (GET-SIZE(GZIPPayload) - 4) TO InputBuffer.
+                
+                PUT-BYTE(InputBuffer,GET-SIZE(InputBuffer) ) = 0x72.
+                PUT-BYTE(InputBuffer,GET-SIZE(InputBuffer) - 1 ) = 0x03.
+                PUT-BYTE(InputBuffer,GET-SIZE(InputBuffer) - 2 ) = 0x53.
+                PUT-BYTE(InputBuffer,GET-SIZE(InputBuffer) - 3 ) = 0xD0.
+
+                MESSAGE get-size(InputBuffer) view-as alert-box info.
+
+                COPY-LOB FROM GZIPPayload TO FILE 'GZIPPayload.payload'.
+          END.
+
+         Zlib:getInstance():uncompressFile('CompressedData.gz','CompressedData.decompress',true).
+         COPY-LOB FROM FILE 'CompressedData.decompress' TO OutputBuffer. 
+
+          /*OutputBuffer = Zlib:getInstance():uncompress(InputBuffer). */
+/*           OutputBuffer = Zlib:getInstance():uncompress(InputBuffer,102400). */
+            
+         
 
         RETURN OutputBuffer.
     END METHOD. /* DeCompress Buffer */
@@ -277,10 +304,6 @@ CLASS co.dsg.http.httpResponce:
             COPY-LOB FROM OBJECT mpHttpData STARTING AT (THIS-OBJECT:STARTINGCONTENTAT )         TO THIS-OBJECT:Body.
 
 
-            /** Handle decompression GZIP **/
-             IF THIS-OBJECT:HEADER('Content-Encoding') EQ 'gzip':U THEN
-                THIS-OBJECT:Body = THIS-OBJECT:DeCompressBuffer(INPUT THIS-OBJECT:Body).
-             
             /** Handle Chunked Content..**/
             IF THIS-OBJECT:HEADER('Content-Length')    EQ '' AND
                THIS-OBJECT:HEADER('Transfer-Encoding') EQ 'chunked':U THEN
@@ -293,6 +316,10 @@ CLASS co.dsg.http.httpResponce:
                 THIS-OBJECT:Body = objUnChunkData:Filter( THIS-OBJECT:Body).
             END.
 
+            /** Handle decompression GZIP **/
+             IF THIS-OBJECT:HEADER('Content-Encoding') EQ 'gzip':U THEN
+                THIS-OBJECT:Body = THIS-OBJECT:DeCompressBuffer(INPUT THIS-OBJECT:Body).
+            
         END.
 
         /** free up some data.**/

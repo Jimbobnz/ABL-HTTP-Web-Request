@@ -41,7 +41,6 @@ CLASS co.dsg.http.httpRequest:
             FormName.
 
     CONSTRUCTOR httpRequest():
-
         THIS-OBJECT:CHARSET         = SESSION:CPINTERNAL.
         THIS-OBJECT:ContentType     = 'text/html'.
         THIS-OBJECT:HttpMethod      = 'GET'.
@@ -53,34 +52,40 @@ CLASS co.dsg.http.httpRequest:
         THIS-OBJECT:FormData        = TEMP-TABLE ttFormData:HANDLE.
     END CONSTRUCTOR.
 
-
     METHOD VOID AddHeader(INPUT pchHeader   AS CHARACTER,
                           INPUT pchValue    AS CHARACTER):
+
+
+        DEFINE BUFFER AddRequestHeader FOR ttHttpRequestHeader.
         /** 
             Adds a request header to the HTTP request. If a header having the 
             same field name is already present, this method replaces it.
         **/       
 
-        FIND ttHttpRequestHeader
-            WHERE ttHttpRequestHeader.HttpHeaderName EQ pchHeader
+        FIND AddRequestHeader
+            WHERE AddRequestHeader.HttpHeaderName EQ TRIM(pchHeader)
             NO-ERROR.
 
-        IF NOT AVAILABLE ttHttpRequestHeader THEN
+        IF NOT AVAILABLE AddRequestHeader THEN
         DO:
 
             THIS-OBJECT:NumHeaderFields = THIS-OBJECT:NumHeaderFields + 1.
 
-            CREATE ttHttpRequestHeader.
+            CREATE AddRequestHeader.
+
             ASSIGN
-                ttHttpRequestHeader.HttpHeaderName  = pchHeader
-                ttHttpRequestHeader.HttpHeaderIndex = THIS-OBJECT:NumHeaderFields.
+                AddRequestHeader.HttpHeaderName  = TRIM(pchHeader)
+                AddRequestHeader.HttpHeaderIndex = THIS-OBJECT:NumHeaderFields NO-ERROR.
         END.
             
-        ASSIGN
-            ttHttpRequestHeader.HttpHeaderValue  = TRIM(pchValue).
+        IF AVAILABLE AddRequesTHEADER THEN 
+            ASSIGN
+                AddRequestHeader.HttpHeaderValue  = TRIM(pchValue).
 
-        IF TRIM(pchValue) EQ '' THEN
-            DELETE ttHttpRequestHeader.
+        IF TRIM(pchValue) EQ '' AND AVAILABLE AddRequestHeader THEN
+            DELETE AddRequestHeader NO-ERROR.
+
+        
     END METHOD.
 
     METHOD PUBLIC VOID AddStringForUpload(INPUT pchFormName       AS CHARACTER,
@@ -253,11 +258,13 @@ CLASS co.dsg.http.httpRequest:
         /**
             Returns the value of a request header field.   
          **/
-        FIND ttHttpRequestHeader
-            WHERE ttHttpRequestHeader.HttpHeaderName EQ pchHeader
+        DEFINE BUFFER HeaderField FOR ttHttpRequestHeader.
+
+        FIND HeaderField
+            WHERE HeaderField.HttpHeaderName EQ pchHeader
             NO-ERROR.
                                                                                            
-        RETURN (IF AVAILABLE ttHttpRequestHeader THEN ttHttpRequestHeader.HttpHeaderValue ELSE '').
+        RETURN (IF AVAILABLE HeaderField THEN HeaderField.HttpHeaderValue ELSE '').
 
     END METHOD.
 
@@ -265,12 +272,14 @@ CLASS co.dsg.http.httpRequest:
         /**
             Returns the Nth request header field name. Indexing begins at 1, and the 
             number of request header fields is specified by the NumHeaderFields property.
-        **/            
-        FIND ttHttpRequestHeader
-            WHERE ttHttpRequestHeader.HttpHeaderIndex EQ pinIndex
+        **/         
+        DEFINE BUFFER HeaderName FOR ttHttpRequestHeader.
+
+        FIND HeaderName
+            WHERE HeaderName.HttpHeaderIndex EQ pinIndex
             NO-ERROR.
 
-        RETURN (IF AVAILABLE ttHttpRequestHeader THEN ttHttpRequestHeader.HttpHeaderName ELSE '').
+        RETURN (IF AVAILABLE HeaderName THEN HeaderName.HttpHeaderName ELSE '').
 
     END METHOD.
 
@@ -280,24 +289,26 @@ CLASS co.dsg.http.httpRequest:
              Removes a single HTTP header field parameter by name. 
           **/
 
-          FIND ttHttpRequestHeader
-            WHERE ttHttpRequestHeader.HttpHeaderName EQ pchHeader
+            DEFINE BUFFER RemoveHeader FOR ttHttpRequestHeader.
+
+          FIND RemoveHeader
+            WHERE RemoveHeader.HttpHeaderName EQ pchHeader
             NO-ERROR.
 
-          IF AVAILABLE ttHttpRequestHeader THEN
+          IF AVAILABLE RemoveHeader THEN
           DO:
-              DELETE ttHttpRequestHeader.
+              DELETE RemoveHeader.
               THIS-OBJECT:NumHeaderFields = THIS-OBJECT:NumHeaderFields - 1.
 
               /** Internal House keeping to maintaing header field indexing. **/
               DEFINE VARIABLE inNewIndex AS INTEGER     NO-UNDO.
 
-              FOR EACH ttHttpRequestHeader
-                  BY ttHttpRequestHeader.HttpHeaderIndex:
+              FOR EACH RemoveHeader
+                  BY RemoveHeader.HttpHeaderIndex:
 
                   ASSIGN
                       inNewIndex                          = inNewIndex + 1
-                      ttHttpRequestHeader.HttpHeaderIndex = inNewIndex.
+                      RemoveHeader.HttpHeaderIndex = inNewIndex.
               END.
                 
               /** Re-assign the NumHeaderFields property to the last know index. **/
@@ -340,14 +351,16 @@ CLASS co.dsg.http.httpRequest:
 
 
         /** Output the content Length if the ContentType 'application/x-www-form-urlencoded'. **/
-        IF THIS-OBJECT:ContentType EQ 'application/x-www-form-urlencoded':U THEN
+        IF THIS-OBJECT:HttpMethod EQ  'POST':U AND 
+           THIS-OBJECT:ContentType EQ 'application/x-www-form-urlencoded':U THEN
         DO:
             THIS-OBJECT:AddHeader('Content-Length', STRING( LENGTH( urlEncodedParams() )) ).
             THIS-OBJECT:ADDHEADER('Content-Type', THIS-OBJECT:ContentType).        
         END.
 
         /** Calculate the content length for a post..**/
-        IF THIS-OBJECT:ContentType EQ 'multipart/form-data':U THEN
+        IF THIS-OBJECT:HttpMethod EQ  'POST':U AND 
+           THIS-OBJECT:ContentType EQ 'multipart/form-data':U THEN
         DO:
             DEFINE VARIABLE inContentLength AS INTEGER     NO-UNDO.
 

@@ -35,20 +35,20 @@ CLASS co.dsg.http.http:
     DEFINE PUBLIC  PROPERTY HttpHeader              AS MEMPTR                   NO-UNDO GET. PRIVATE SET. 
     DEFINE PUBLIC  PROPERTY ContentData             AS MEMPTR                   NO-UNDO GET. PRIVATE SET. 
     DEFINE PUBLIC  PROPERTY UserInfo                AS CHARACTER                NO-UNDO GET. PRIVATE SET. 
-    DEFINE PUBLIC  PROPERTY Secure                  AS LOGICAL INITIAL ?        NO-UNDO GET. SET. 
-    DEFINE PUBLIC  PROPERTY FollowRedirect          AS LOGICAL INITIAL TRUE     NO-UNDO GET. SET. 
+    DEFINE PUBLIC  PROPERTY Secure                  AS LOGICAL   INITIAL ?        NO-UNDO GET. SET. 
+    DEFINE PUBLIC  PROPERTY FollowRedirect          AS LOGICAL   INITIAL TRUE     NO-UNDO GET. SET. 
+    DEFINE PUBLIC  PROPERTY ProxyHost               AS CHARACTER INITIAL ''   NO-UNDO GET. SET. 
+    DEFINE PUBLIC  PROPERTY ProxyPort               AS INTEGER   INITIAL 8080     NO-UNDO GET. SET. 
+    DEFINE PUBLIC  PROPERTY ContentGZIP             AS LOGICAL   INITIAL TRUE     NO-UNDO GET. SET. 
+
     DEFINE PRIVATE PROPERTY CallBackProcedureName   AS CHARACTER                NO-UNDO GET. PRIVATE SET. 
     DEFINE PRIVATE PROPERTY CallBackProcedureHandle AS HANDLE                   NO-UNDO GET. PRIVATE SET.  
     
 
     CONSTRUCTOR http():
         objCookies = NEW httpCookies().
-
         /** Load Cookie Jar into Memory **/
         objCookies:LoadCookies().
-
-        MESSAGE objCookies:GetCookies()
-            VIEW-AS ALERT-BOX INFO.
 
     END CONSTRUCTOR.
 
@@ -83,8 +83,8 @@ CLASS co.dsg.http.http:
         DEFINE VARIABLE chEncodedString AS CHARACTER   NO-UNDO.
         
         SET-SIZE(mpAUTHO)     = 0.
-        SET-SIZE(mpAUTHO)     = LENGTH(pchStringToEncode, 'RAW') + 1.
-        PUT-STRING(mpAUTHO,1) = pchStringToEncode.
+        SET-SIZE(mpAUTHO)     = LENGTH(pchStringToEncode, 'RAW').
+        PUT-STRING(mpAUTHO,1,LENGTH(pchStringToEncode, 'RAW')) = pchStringToEncode.
             
         chEncodedString = STRING( BASE64-ENCODE(mpAUTHO) ).
         SET-SIZE(mpAUTHO)     = 0.
@@ -112,6 +112,7 @@ CLASS co.dsg.http.http:
         DEFINE VARIABLE mpHTTPDATA      AS MEMPTR      NO-UNDO.
         DEFINE VARIABLE mpHTTPContent   AS MEMPTR      NO-UNDO.
         DEFINE VARIABLE inNumParams     AS INTEGER     NO-UNDO.
+        DEFINE VARIABLE lgWriteScussful AS LOGICAL     NO-UNDO.
         
         ASSIGN
             objHttpRequest:Path = THIS-OBJECT:objURL:Path                                WHEN ( objHttpRequest:Path EQ '/' )
@@ -144,14 +145,51 @@ CLASS co.dsg.http.http:
         OUTPUT CLOSE.
         /* DEBUG END..*/
 
-        objHTTPSocket:Connect(THIS-OBJECT:objURL:hostname,
-                              THIS-OBJECT:objURL:port,
-                              THIS-OBJECT:Secure).
 
-        IF objHTTPSocket:CONNECTED() THEN
+        /** CONNECT VIA A PROXY **/
+        IF ProxyHost NE '' AND NOT THIS-OBJECT:Secure THEN
+        DO:
+            /** Connect to a PROXY SERVER **/                    
+            objHTTPSocket:Connect(THIS-OBJECT:ProxyHost,
+                                  THIS-OBJECT:ProxyPort,
+                                  FALSE).
+            
+            /** CAN"T CONNECT TO A SSL SERVER via a proxy connection 
+                due to the socket limitations of the ABL. **/
+            IF THIS-OBJECT:Secure THEN
+            DO:
+                objHTTPSocket:WRITE( SUBSTITUTE("CONNECT &1:&2 HTTP/1.0~r~n",
+                                                THIS-OBJECT:objURL:hostname,
+                                                THIS-OBJECT:objURL:port)
+                                     ).
+                 objHTTPSocket:WRITE( SUBSTITUTE("User-agent: &1~r~n",
+                                                 PROVERSION(1))
+                                      ).
+            END.
+            ELSE
+                objHttpRequest:Path = pchURL + objHttpRequest:Path. 
+            
+            /** The request path now needed to include the full URI i.e. Protocol Host etc. **/
+            /** The absoluteURI form is required when the request is being made to a proxy. **/
+            
+
+        END.
+        ELSE
+            objHTTPSocket:Connect(THIS-OBJECT:objURL:hostname,
+                                  THIS-OBJECT:objURL:port,
+                                  THIS-OBJECT:Secure).
+
+        IF NOT objHTTPSocket:CONNECTED() THEN
+        DO:
+            MESSAGE 
+                ERROR-STATUS:GET-MESSAGE(1)
+                VIEW-AS ALERT-BOX ERROR.
+
+        END.
+        ELSE
         DO:
             /** Send the MIME HTTP Request Header **/
-            DEFINE VARIABLE lgWriteScussful AS LOGICAL     NO-UNDO.
+
 
             lgWriteScussful = objHTTPSocket:WRITE( objHttpRequest:EntireHeader() ).
 
@@ -262,13 +300,13 @@ CLASS co.dsg.http.http:
             objHttpResponce:ParseHTTPResponce(INPUT THIS-OBJECT:objURL:hostname,
                                               INPUT mpHTTPDATA).
             
-/*             MESSAGE objHttpResponce:HttpResponceString SKIP */
-/*                     objHttpResponce:header('Location') SKIP */
-/*                     objHttpResponce:header('Date') SKIP(1)  */
-/*                     objHttpResponce:header()                */
-/*                 VIEW-AS ALERT-BOX INFO.                     */
+            MESSAGE objHttpResponce:HttpResponceString SKIP
+                    objHttpResponce:header('Location') SKIP
+                    objHttpResponce:header('Date') SKIP(1)
+                    objHttpResponce:header()
+                VIEW-AS ALERT-BOX INFO.
 
-/*             COPY-LOB FROM OBJECT objHttpResponce:HEADER TO FILE 'HTTPHeaderDebug.txt'. */
+            COPY-LOB FROM OBJECT objHttpResponce:HEADER TO FILE 'HTTPHeaderDebug.txt'.
 
             SET-SIZE(mpHTTPDATA) = 0 .
             
@@ -289,19 +327,22 @@ CLASS co.dsg.http.http:
                Need a loop counter to stop continues redirects 
                which could follow into a never ending loop.
              ***/
+
+                            
+
             objHttpResponce = THIS-OBJECT:SynchronousRequest(INPUT objHttpResponce:header('Location'), /** The new location **/
                                                              INPUT THIS-OBJECT:objHttpRequest).        /** Continue passsing the orignal HTTP Request.**/
         END.
         ELSE
         DO:
 
-            IF VALID-HANDLE(THIS-OBJECT:CallBackProcedureHandle) THEN
-                RUN VALUE(THIS-OBJECT:CallBackProcedureName) IN THIS-OBJECT:CallBackProcedureHandle (INPUT objHttpResponce).
+/*             IF VALID-HANDLE(THIS-OBJECT:CallBackProcedureHandle) THEN                                                        */
+/*                 RUN VALUE(THIS-OBJECT:CallBackProcedureName) IN THIS-OBJECT:CallBackProcedureHandle (INPUT objHttpResponce). */
 
         END.
 
-        IF VALID-OBJECT(THIS-OBJECT:objHttpRequest) THEN
-            DELETE OBJECT THIS-OBJECT:objHttpRequest.
+/*         IF VALID-OBJECT(THIS-OBJECT:objHttpRequest) THEN */
+/*             DELETE OBJECT THIS-OBJECT:objHttpRequest.    */
 
         RETURN THIS-OBJECT:objHttpResponce.
     END METHOD.
@@ -320,6 +361,9 @@ CLASS co.dsg.http.http:
         
         /** Request method defaults to 'GET' **/
         THIS-OBJECT:objHttpRequest = NEW HttpRequest().
+
+
+
 
         RETURN THIS-OBJECT:Download(INPUT pchURL,
                                     INPUT THIS-OBJECT:objHttpRequest,

@@ -64,7 +64,7 @@ CLASS co.dsg.http.httpSocket:
         chConnect = SUBSTITUTE("-H &1 -S &2 &3",
                                pchHost,
                                pinPort,
-                               (IF plgSecure THEN '-ssl' ELSE '')
+                               (IF plgSecure THEN '-ssl -nohostverify' ELSE '')
                                ).
         /** Need to be a Property or Set Method**/
         hnClientSocket:SET-SOCKET-OPTION("SO-RCVTIMEO", '5').
@@ -101,20 +101,18 @@ CLASS co.dsg.http.httpSocket:
     METHOD PUBLIC LOGICAL WRITE (INPUT pmpData AS MEMPTR):
 
         IF NOT VALID-HANDLE(hnClientSocket) OR
-            NOT hnClientSocket:CONNECTED() THEN 
-            RETURN FALSE.
+           NOT hnClientSocket:CONNECTED() THEN 
+           RETURN FALSE.
             
         COPY-LOB FROM OBJECT pmpData TO FILE 'Socket-out.log' APPEND.
 
         hnClientSocket:WRITE(pmpData, 1, GET-SIZE(pmpData)).
 
-        IF hnClientSocket:BYTES-WRITTEN EQ 0 THEN 
+        IF hnClientSocket:BYTES-WRITTEN EQ 0 OR
+           hnClientSocket:BYTES-WRITTEN NE GET-SIZE(pmpData) THEN
             RETURN FALSE.
-
-        IF hnClientSocket:BYTES-WRITTEN NE GET-SIZE(pmpData) THEN
-            RETURN FALSE.
-
-        RETURN TRUE.
+        ELSE
+            RETURN TRUE.
 
     END METHOD.
 
@@ -148,9 +146,11 @@ CLASS co.dsg.http.httpSocket:
             IF NOT LOGICAL(inBytesAvail) THEN
             DO:
                 ETIME(YES).
-                DO WHILE inBytesAvail = 0 AND ETIME < {&TIMEOUTMS}:
+                DO WHILE inBytesAvail EQ 0 AND ETIME < {&TIMEOUTMS}:
                     inBytesAvail = hnClientSocket:GET-BYTES-AVAILABLE().
                 END.
+
+                message 'Wainting.'.
             END.
     
             IF LOGICAL(inBytesAvail) THEN 
@@ -161,8 +161,12 @@ CLASS co.dsg.http.httpSocket:
                 SET-BYTE-ORDER(mpSocketBuffer) = BIG-ENDIAN.
                 SET-SIZE(mpSocketBuffer) = inBytesAvail.
             
+                message 'Reading: ' inBytesAvail.
+
                 hnClientSocket:READ(mpSocketBuffer, 1, inBytesAvail, READ-EXACT-NUM).
                 
+                MESSAGE '   Read: '  hnClientSocket:BYTES-READ.
+
                 /** This is my solution to creating a dynamically increasing memory 
                     pointer as more and more data is streamed down the wire.
                  **/
